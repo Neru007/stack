@@ -1,0 +1,37 @@
+route:
+ receiver: alerta
+ routes:
+  - match:
+      severity: critical
+    receiver: alerta
+
+receivers:
+
+- name: "alerta"
+  webhook_configs:
+  - url: 'http://10.157.9.166/api/webhooks/prometheus?api-key=Ne-EfjoJHJEWntwR1-KgNgG8FLdD-4A8yxbbnttL'
+    send_resolved: true
+
+- name: slack_webhook
+  slack_configs:
+  - send_resolved: True
+    #api_url: https://hooks.slack.com/services/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
+    api_url: https://hooks.slack.com/services/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
+    channel: jaws_alert
+    username: '{{ template "slack.default.username" . }}'
+    color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    title: '{{ template "slack.default.title" . }}'
+    title_link: '{{ template "slack.default.titlelink" . }}'
+    pretext: '{{ .CommonAnnotations.summary }}'
+    text: |-
+      {{ range .Alerts }}
+         *Alert:* {{ .Annotations.summary }} - `{{ .Labels.severity }}`
+        *Description:* {{ .Annotations.description }}
+        *Details:*
+        {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+        {{ end }}
+      {{ end }}
+    fallback: '{{ template "slack.default.fallback" . }}'
+    icon_emoji: '{{ template "slack.default.iconemoji" . }}'
+    icon_url: '{{ template "slack.default.iconurl" . }}'
+templates: []

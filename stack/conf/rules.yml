@@ -1,0 +1,190 @@
+groups:
+- name: system.rules
+  rules:
+  - alert: PrometheusTargetDown
+    expr: >-
+      up != 1
+    labels:
+      environment: "Production"
+      severity: "critical"
+      service: "prometheus"
+    annotations:
+      description: "The Prometheus Target {{ $labels.instance }} is down for the job {{ $labels.job}}"
+      summary: "Prometheus endpont {{$labels.instance}} is down"
+  - alert: SystemCpuIdleTooLow
+    expr: >-
+      avg_over_time(cpu_usage_idle{cpu="cpu-total"}[5m]) < 10.0
+    labels:
+      environment: "Production"
+      severity: "Warning"
+      service: "system"
+    annotations:
+      description: "The average idle CPU usage is too low on node {{ $labels.host }} (current value={{ $value }}%, threshold=10.0%)."
+      summary: "Idle CPU usage too low on {{ $labels.host }}"
+  - alert: SystemLoad5TooHigh
+    expr: >-
+      system_load5 / system_n_cpus > 3
+    labels:
+      environment: "Production"
+      severity: "critical"
+      service: "system"
+    annotations:
+      description: "The 5-minutes system load is too high on node {{ $labels.host }} (current value={{ $value }}, threshold=3)."
+      summary: "High system load (5m) on {{ $labels.host }}"
+  - alert: SystemMemoryAvailableTooLow
+    expr: >-
+      avg_over_time(mem_available_percent[5m]) < 5.0
+    labels:
+      environment: "Production"
+      severity: "critical"
+      service: "system"
+    annotations:
+      description: "The percentage of free memory is too low on node {{ $labels.host }} (current value={{ $value }}%, threshold=5.0%)."
+      summary: "Free memory too low on {{ $labels.host }}"
+  - alert: SystemDiskInodesFull
+    expr: >-
+      disk_inodes_used / disk_inodes_total >= 0.99
+    labels:
+      environment: "Production"
+      severity: "critical"
+      service: "system"
+    annotations:
+      description: "The disk inodes ({{ $labels.path }}) are used at {{ $value }}% on {{ $labels.host }}."
+      summary: "Inodes for {{ $labels.path }} full on {{ $labels.host }}"
+  - alert: SystemDiskSpaceFull
+    expr: >-
+      disk_used_percent >= 85
+    labels:
+      environment: "Production"
+      severity: "critical"
+      service: "system"
+    annotations:
+      description: "The disk partition ({{ $labels.path }}) is used at {{ $value }}% on {{ $labels.host }}."
+      summary: "Disk partition {{ $labels.path }} full on {{ $labels.host }}"
+  - alert: SystemDiskSpaceTooLow
+    expr: >-
+      predict_linear(disk_free[1h], 8*3600) < 0
+    for: 15m
+    labels:
+      environment: "Production"
+      severity: "Warning"
+      service: "system"
+    annotations:
+      description: "The disk partition ({{ $labels.path }}) will be full in less than 8 hours on {{ $labels.host }}."
+      summary: "Free space for {{ $labels.path }} too low on {{ $labels.host }}"
+  - alert: SystemDiskInodesTooLow
+    expr: >-
+      predict_linear(disk_inodes_free[1h], 8*3600) < 0
+    for: 15m
+    labels:
+      environment: "Production"
+      severity: "Warning"
+      service: "system"
+    annotations:
+      description: "The disk inodes ({{ $labels.path }}) will be full in less than 8 hours on {{ $labels.host }}."
+      summary: "Free inodes for {{ $labels.path }} too low on {{ $labels.host }}"
+  - alert: AlertmanagerNotificationFailed
+    expr: >-
+      rate(alertmanager_notifications_failed_total[5m]) > 0.3
+    for: 2m
+    labels:
+      environment: "Production"
+      severity: "Warning"
+      service: "alertmanager"
+    annotations:
+      description: "Alertmanager {{ $labels.instance }} failed notifications for {{ $labels.integration }} (current value={{ $value }}, threshold=0.3)"
+      summary: "Alertmanager {{ $labels.instance }} failed notifications"
+  - alert: ElasticsearchClusterHealthStatusRed
+    expr: >-
+       es_cluster_status == 3
+    labels:
+      environment: "Production"
+      service: "elasticsearch"
+      severity: "critical"
+    annotations:
+      description: The Elasticsearch cluster {{ $labels.cluster }} status is RED for the last 5 minutes.
+      summary: Elasticsearch cluster {{ $labels.cluster }} status is RED
+  - alert: ElasticsearchClusterHealthStatusYellow
+    expr: >-
+       es_cluster_status == 2
+    labels:
+      environment: "Production"
+      service: "elasticsearch"
+      severity: "critical"
+    annotations:
+      description: The Elasticsearch cluster {{ $labels.cluster }} status is YELLOW for the last 5 minutes.
+      summary: Elasticsearch cluster {{ $labels.cluster }} status is RED
+  - alert: task_high_cpu_usage_50
+    expr: >-
+       sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_swarm_task_name=~".+"}[1m])) BY (container_label_com_docker_swarm_task_name, container_label_com_docker_swarm_node_id) * 100 > 50
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "critical"
+    for: 1m
+    annotations:
+      description: '{{ $labels.container_label_com_docker_swarm_task_name }} on ''{{
+        $labels.container_label_com_docker_swarm_node_id }}'' CPU usage is at {{ humanize
+        $value}}%.'
+      summary: CPU alert for Swarm task '{{ $labels.container_label_com_docker_swarm_task_name
+        }}' on '{{ $labels.container_label_com_docker_swarm_node_id }}'
+  - alert: task_high_memory_usage_1g
+    expr: >-
+        sum(container_memory_rss{container_label_com_docker_swarm_task_name=~".+"}) BY (container_label_com_docker_swarm_task_name, container_label_com_docker_swarm_node_id) > 1e+09
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "Warning"
+    for: 1m
+    annotations:
+      description: '{{ $labels.container_label_com_docker_swarm_task_name }} on ''{{
+        $labels.container_label_com_docker_swarm_node_id }}'' memory usage is {{ humanize
+        $value}}.'
+      summary: Memory alert for Swarm task '{{ $labels.container_label_com_docker_swarm_task_name
+        }}' on '{{ $labels.container_label_com_docker_swarm_node_id }}'
+  - alert: node_cpu_usage
+    expr: >- 
+        100 - (avg(irate(node_cpu{mode="idle"}[1m]) * ON(instance) GROUP_LEFT(node_name) node_meta * 100) BY (node_name)) > 50
+    for: 1m
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "Warning"
+    annotations:
+      description: Swarm node {{ $labels.node_name }} CPU usage is at {{ humanize
+        $value}}%.
+      summary: CPU alert for Swarm node '{{ $labels.node_name }}'
+  - alert: node_memory_usage
+    expr: >- 
+        sum(((node_memory_MemTotal - node_memory_MemAvailable) / node_memory_MemTotal) * ON(instance) GROUP_LEFT(node_name) node_meta * 100) BY (node_name) > 80
+    for: 1m
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "Warning"
+    annotations:
+      description: Swarm node {{ $labels.node_name }} memory usage is at {{ humanize
+        $value}}%.
+      summary: Memory alert for Swarm node '{{ $labels.node_name }}'
+  - alert: node_disk_usage
+    expr: >- 
+        ((node_filesystem_size{mountpoint="/"} - node_filesystem_free{mountpoint="/"}) * 100 / node_filesystem_size{mountpoint="/"}) * ON(instance) GROUP_LEFT(node_name) node_meta > 85
+    for: 1m
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "Warning"
+    annotations:
+      description: Swarm node {{ $labels.node_name }} disk usage is at {{ humanize.$value}}%.
+      summary: Disk alert for Swarm node '{{ $labels.node_name }}'
+  - alert: node_disk_fill_rate_6h
+    expr: >- 
+        predict_linear(node_filesystem_free{mountpoint="/"}[1h], 6 * 3600) * ON(instance) GROUP_LEFT(node_name) node_meta < 0
+    for: 1h
+    labels:
+      environment: "Production"
+      service: "DockerSwarm"
+      severity: "Critical"
+    annotations:
+      description: Swarm node {{ $labels.node_name }} disk is going to fill up in 6h.
+      summary: Disk fill alert for Swarm node '{{ $labels.node_name }}'
